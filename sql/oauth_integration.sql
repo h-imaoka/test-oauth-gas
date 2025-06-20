@@ -1,0 +1,12 @@
+CREATE or replace SECURITY INTEGRATION okta_oauth_integration
+  TYPE = EXTERNAL_OAUTH
+  ENABLED = TRUE
+  EXTERNAL_OAUTH_TYPE = OKTA
+  EXTERNAL_OAUTH_ISSUER = 'https://{okta_org_name}.okta.com/oauth2/default'
+  EXTERNAL_OAUTH_JWS_KEYS_URL = 'https://{okta_org_name}.okta.com/oauth2/default/v1/keys'
+  EXTERNAL_OAUTH_AUDIENCE_LIST = ('api://default')
+  EXTERNAL_OAUTH_TOKEN_USER_MAPPING_CLAIM = 'sub'
+  EXTERNAL_OAUTH_SNOWFLAKE_USER_MAPPING_ATTRIBUTE = 'LOGIN_NAME';
+
+ALTER SECURITY INTEGRATION OKTA_oauth_integration
+  SET EXTERNAL_OAUTH_ANY_ROLE_MODE = 'ENABLE';
