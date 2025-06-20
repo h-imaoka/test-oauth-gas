@@ -2,10 +2,13 @@ import os
 import json
 import secrets
 import requests
+import time
 from urllib.parse import urlencode
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from dotenv import load_dotenv
 import snowflake.connector
+from authlib.common.security import generate_token
+from authlib.oauth2.rfc7636 import create_s256_code_challenge
 
 load_dotenv()
 
@@ -16,13 +19,13 @@ SNOWFLAKE_CLIENT_ID = os.getenv('SNOWFLAKE_CLIENT_ID')
 SNOWFLAKE_CLIENT_SECRET = os.getenv('SNOWFLAKE_CLIENT_SECRET')
 SNOWFLAKE_ACCOUNT_IDENTIFIER = os.getenv('SNOWFLAKE_ACCOUNT_IDENTIFIER')
 SNOWFLAKE_WAREHOUSE = os.getenv('SNOWFLAKE_WAREHOUSE')
-SNOWFLAKE_DATABASE = os.getenv('SNOWFLAKE_DATABASE')
-SNOWFLAKE_SCHEMA = os.getenv('SNOWFLAKE_SCHEMA')
 
 TOKEN_FILE = 'tokens.json'
 
 def save_token(token_data):
-    """トークンをローカルファイルに保存"""
+    """トークンをローカルファイルに保存（期限情報付き）"""
+    # 現在時刻を追加（トークン取得時刻として記録）
+    token_data['obtained_at'] = int(time.time())
     with open(TOKEN_FILE, 'w') as f:
         json.dump(token_data, f, indent=2)
 
@@ -34,25 +37,91 @@ def load_token():
     except FileNotFoundError:
         return None
 
+def is_token_expired(token_data, buffer_seconds=300):
+    """トークンが期限切れかチェック（デフォルト5分前にTrue）"""
+    if not token_data or 'expires_in' not in token_data or 'obtained_at' not in token_data:
+        return True
+    
+    expires_in = token_data.get('expires_in', 3600)  # デフォルト1時間
+    obtained_at = token_data.get('obtained_at', 0)
+    current_time = int(time.time())
+    
+    # 期限切れの5分前（buffer_seconds）にTrueを返す
+    return (current_time - obtained_at) >= (expires_in - buffer_seconds)
+
+def refresh_access_token(refresh_token):
+    """リフレッシュトークンを使ってアクセストークンを更新"""
+    token_data = {
+        'grant_type': 'refresh_token',
+        'refresh_token': refresh_token,
+        'client_id': SNOWFLAKE_CLIENT_ID,
+        'client_secret': SNOWFLAKE_CLIENT_SECRET
+    }
+    
+    token_url = f"https://{SNOWFLAKE_ACCOUNT_IDENTIFIER}.snowflakecomputing.com/oauth/token-request"
+    
+    try:
+        response = requests.post(token_url, data=token_data)
+        if response.status_code == 200:
+            new_token_data = response.json()
+            save_token(new_token_data)
+            return new_token_data
+        else:
+            print(f"Token refresh failed: {response.status_code} - {response.text}")
+            return None
+    except Exception as e:
+        print(f"Token refresh error: {str(e)}")
+        return None
+
+def get_valid_token():
+    """有効なトークンを取得（必要に応じて自動更新）"""
+    token_data = load_token()
+    if not token_data:
+        return None
+    
+    # トークンが期限切れ間近かチェック
+    if is_token_expired(token_data):
+        refresh_token = token_data.get('refresh_token')
+        if refresh_token:
+            # トークンを更新
+            new_token_data = refresh_access_token(refresh_token)
+            if new_token_data:
+                return new_token_data
+            else:
+                # リフレッシュに失敗した場合、古いトークンファイルを削除
+                if os.path.exists(TOKEN_FILE):
+                    os.remove(TOKEN_FILE)
+                return None
+        else:
+            return None
+    
+    return token_data
+
 @app.route('/')
 def index():
-    token_data = load_token()
+    token_data = get_valid_token()
     if token_data:
         return render_template('dashboard.html', authenticated=True)
     return render_template('login.html')
 
 @app.route('/login')
 def login():
-    """Snowflake OAuth認証を開始"""
+    """Snowflake OAuth認証を開始（PKCE対応）"""
     state = secrets.token_urlsafe(32)
+    code_verifier = generate_token(128)
+    code_challenge = create_s256_code_challenge(code_verifier)
+    
     session['oauth_state'] = state
+    session['code_verifier'] = code_verifier
     
     auth_params = {
         'response_type': 'code',
         'client_id': SNOWFLAKE_CLIENT_ID,
         'redirect_uri': 'http://127.0.0.1:5000/callback',
         'scope': 'refresh_token',
-        'state': state
+        'state': state,
+        'code_challenge': code_challenge,
+        'code_challenge_method': 'S256'
     }
     
     auth_url = f"https://{SNOWFLAKE_ACCOUNT_IDENTIFIER}.snowflakecomputing.com/oauth/authorize?" + urlencode(auth_params)
@@ -72,12 +141,18 @@ def callback():
         flash('不正なリクエストです', 'error')
         return redirect(url_for('index'))
     
+    code_verifier = session.get('code_verifier')
+    if not code_verifier:
+        flash('セッションが無効です', 'error')
+        return redirect(url_for('index'))
+    
     token_data = {
         'grant_type': 'authorization_code',
         'code': code,
         'client_id': SNOWFLAKE_CLIENT_ID,
         'client_secret': SNOWFLAKE_CLIENT_SECRET,
-        'redirect_uri': 'http://127.0.0.1:5000/callback'
+        'redirect_uri': 'http://127.0.0.1:5000/callback',
+        'code_verifier': code_verifier
     }
     
     token_url = f"https://{SNOWFLAKE_ACCOUNT_IDENTIFIER}.snowflakecomputing.com/oauth/token-request"
@@ -87,7 +162,7 @@ def callback():
         if response.status_code == 200:
             token_info = response.json()
             save_token(token_info)
-            flash('认证成功！', 'success')
+            flash('ログイン成功！', 'success')
             return redirect(url_for('dashboard'))
         else:
             flash(f'トークン取得に失敗しました: {response.text}', 'error')
@@ -99,7 +174,7 @@ def callback():
 @app.route('/dashboard')
 def dashboard():
     """ダッシュボード画面"""
-    token_data = load_token()
+    token_data = get_valid_token()
     if not token_data:
         return redirect(url_for('index'))
     
@@ -108,8 +183,9 @@ def dashboard():
 @app.route('/execute_sql', methods=['POST'])
 def execute_sql():
     """SQL実行"""
-    token_data = load_token()
+    token_data = get_valid_token()
     if not token_data:
+        flash('認証が必要です。再ログインしてください。', 'error')
         return redirect(url_for('index'))
     
     sql_query = request.form.get('sql_query', '').strip()
