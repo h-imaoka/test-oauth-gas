@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}ログイン - Snowflake OAuth App{% endblock %}
+{% block heading %}Snowflake OAuth 認証{% endblock %}
+
+{% block content %}
+<div style="text-align: center;">
+    <p>SnowflakeのOAuth認証を使用してログインしてください。</p>
+    
+    <a href="{{ url_for('login') }}" class="btn">Snowflakeでログイン</a>
+    
+    <div style="margin-top: 30px; padding: 20px; background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px;">
+        <h3>設定方法:</h3>
+        <ol style="text-align: left; max-width: 600px; margin: 0 auto;">
+            <li>.envファイルを作成し、以下の値を設定してください:</li>
+            <ul>
+                <li>SNOWFLAKE_CLIENT_ID</li>
+                <li>SNOWFLAKE_CLIENT_SECRET</li>
+                <li>SNOWFLAKE_ACCOUNT_IDENTIFIER</li>
+                <li>FLASK_SECRET_KEY</li>
+            </ul>
+            <li>OAuth integrationのリダイレクトURIは: <code>http://127.0.0.1:5000/callback</code></li>
+        </ol>
+    </div>
+</div>
+{% endblock %}

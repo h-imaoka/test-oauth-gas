@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}ダッシュボード - Snowflake OAuth App{% endblock %}
+{% block heading %}Snowflake SQL実行{% endblock %}
+
+{% block content %}
+<div style="text-align: right; margin-bottom: 20px;">
+    <a href="{{ url_for('logout') }}" class="btn btn-danger">ログアウト</a>
+</div>
+
+<form method="POST" action="{{ url_for('execute_sql') }}">
+    <div style="margin-bottom: 20px;">
+        <label for="warehouse"><strong>Warehouse:</strong></label>
+        <input type="text" name="warehouse" id="warehouse" placeholder="COMPUTE_WH" value="{{ warehouse or '' }}" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 15px;">
+    </div>
+    
+    <div style="margin-bottom: 20px;">
+        <label for="sql_query"><strong>SQLクエリを入力:</strong></label>
+        <textarea name="sql_query" id="sql_query" placeholder="SELECT * FROM your_table LIMIT 10;">{{ sql_query or '' }}</textarea>
+    </div>
+    
+    <button type="submit" class="btn">SQL実行</button>
+</form>
+
+{% if results is defined %}
+    <div style="margin-top: 30px;">
+        <h3>実行結果:</h3>
+        
+        {% if results %}
+            <p><strong>{{ results|length }}</strong> 行の結果</p>
+            
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            {% for column in columns %}
+                                <th>{{ column }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in results %}
+                            <tr>
+                                {% for cell in row %}
+                                    <td>{{ cell if cell is not none else 'NULL' }}</td>
+                                {% endfor %}
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p>結果はありませんでした。</p>
+        {% endif %}
+    </div>
+{% endif %}
+
+<div style="margin-top: 40px; padding: 15px; background-color: #e8f4fd; border-left: 4px solid #3498db;">
+    <h4>使用方法:</h4>
+    <ul>
+        <li>上記のテキストエリアにSnowflake SQLクエリを入力してください</li>
+        <li>例: <code>SELECT CURRENT_VERSION();</code></li>
+        <li>例: <code>SHOW DATABASES;</code></li>
+        <li>例: <code>SELECT * FROM INFORMATION_SCHEMA.TABLES LIMIT 5;</code></li>
+    </ul>
+</div>
+{% endblock %}
