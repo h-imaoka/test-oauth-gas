@@ -16,15 +16,13 @@ Snowflake OAuth認証（PKCE対応）を使用してSQL実行を行うWebアプ�
    SNOWFLAKE_CLIENT_SECRET=your_client_secret_here
    SNOWFLAKE_ACCOUNT_IDENTIFIER=your_account_identifier_here
    SNOWFLAKE_WAREHOUSE=your_warehouse_name_here (optional)
-   SNOWFLAKE_DATABASE=your_database_name_here (optional)
-   SNOWFLAKE_SCHEMA=your_schema_name_here (optional)
    FLASK_SECRET_KEY=your_flask_secret_key_here
    ```
 
 3. Snowflake OAuth Integration設定:
    - Snowflakeで新しいOAuth integrationを作成
    - リダイレクトURI: `http://127.0.0.1:5000/callback`
-   - スコープ: `refresh_token`
+   - スコープ: `refresh_token` (+ ロール指定時は `session:role:ROLE_NAME`)
    - PKCE必須設定を有効化 (賛否あり)
 
 ```sql
@@ -52,6 +50,7 @@ python app.py
 
 ### OAuth認証
 - **PKCE対応**: セキュアなOAuth 2.0認証
+- **ロール指定認証**: ログイン時に使用するSnowflakeロールを指定可能
 - **自動トークン更新**: アクセストークン期限切れ前（5分前）に自動リフレッシュ
 - **リフレッシュトークン**: 長期間の認証維持（通常90日）
 
@@ -74,10 +73,11 @@ python app.py
 - **requests**: HTTP通信
 
 ### OAuth フロー
-1. PKCE Code Challenge/Verifier生成
-2. Snowflake認証ページへリダイレクト
-3. 認証コードとcode_verifierでトークン交換
-4. アクセストークン + リフレッシュトークン取得
+1. ログイン画面でロール指定（オプション）
+2. PKCE Code Challenge/Verifier生成
+3. 指定ロールを含むスコープでSnowflake認証ページへリダイレクト
+4. 認証コードとcode_verifierでトークン交換
+5. 指定ロール権限付きアクセストークン + リフレッシュトークン取得
 
 ### 自動トークン更新
 - アクセストークン期限の5分前に自動検出
@@ -89,4 +89,6 @@ python app.py
 - **開発用途**: ローカル開発環境での使用を想定
 - **セキュリティ**: プロダクション環境では適切なセキュリティ対策が必要
 - **トークン保存**: ローカルファイルに平文保存（暗号化推奨）
+- **ロール制限**: `ACCOUNTADMIN`, `SECURITYADMIN`等の強力なロールはOAuth制限される場合があります
+- **ロール切り替え**: 異なるロール使用時は再ログインが必要
 - **エラーログ**: リフレッシュ失敗の詳細はコンソールに出力

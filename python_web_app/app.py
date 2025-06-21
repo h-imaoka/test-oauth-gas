@@ -104,9 +104,16 @@ def index():
         return render_template('dashboard.html', authenticated=True)
     return render_template('login.html')
 
-@app.route('/login')
+@app.route('/login', methods=['GET', 'POST'])
 def login():
     """Snowflake OAuth認証を開始（PKCE対応）"""
+    # GETリクエストの場合はログインフォームを表示
+    if request.method == 'GET':
+        return render_template('login.html')
+    
+    # POSTリクエストの場合はOAuth認証を開始
+    role = request.form.get('role', '').strip()
+    
     state = secrets.token_urlsafe(32)
     code_verifier = generate_token(128)
     code_challenge = create_s256_code_challenge(code_verifier)
@@ -118,7 +125,7 @@ def login():
         'response_type': 'code',
         'client_id': SNOWFLAKE_CLIENT_ID,
         'redirect_uri': 'http://127.0.0.1:5000/callback',
-        'scope': 'refresh_token',
+        'scope': f'refresh_token{f" session:role:{role}" if role else ""}',
         'state': state,
         'code_challenge': code_challenge,
         'code_challenge_method': 'S256'
@@ -190,6 +197,7 @@ def execute_sql():
     
     sql_query = request.form.get('sql_query', '').strip()
     warehouse = request.form.get('warehouse', '').strip()
+    role = request.form.get('role', '').strip()
     
     if not sql_query:
         flash('SQLクエリを入力してください', 'error')
@@ -203,6 +211,10 @@ def execute_sql():
             'token': access_token,
             'authenticator': 'oauth'
         }
+        
+        # Roleの設定（指定された場合のみ）
+        if role:
+            conn_params['role'] = role
         
         conn = snowflake.connector.connect(**conn_params)
         cursor = conn.cursor()
@@ -224,6 +236,7 @@ def execute_sql():
                              authenticated=True, 
                              sql_query=sql_query,
                              warehouse=warehouse,
+                             role=role,
                              results=results, 
                              columns=columns)
     
@@ -232,7 +245,8 @@ def execute_sql():
         return render_template('dashboard.html', 
                              authenticated=True, 
                              sql_query=sql_query,
-                             warehouse=warehouse)
+                             warehouse=warehouse,
+                             role=role)
 
 @app.route('/logout')
 def logout():

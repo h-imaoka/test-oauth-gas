@@ -7,7 +7,14 @@
 <div style="text-align: center;">
     <p>SnowflakeのOAuth認証を使用してログインしてください。</p>
     
-    <a href="{{ url_for('login') }}" class="btn">Snowflakeでログイン</a>
+    <form method="POST" action="{{ url_for('login') }}" style="margin-bottom: 20px;">
+        <div style="margin-bottom: 15px;">
+            <label for="role"><strong>Role（オプション）:</strong></label><br>
+            <input type="text" name="role" id="role" placeholder="ANALYST, SALES等" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; width: 300px; margin-top: 5px;">
+            <br><small style="color: #666;">空欄の場合はデフォルトロールを使用</small>
+        </div>
+        <button type="submit" class="btn">Snowflakeでログイン</button>
+    </form>
     
     <div style="margin-top: 30px; padding: 20px; background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px;">
         <h3>設定方法:</h3>
