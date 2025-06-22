@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block title %}ダッシュボード - AWS Cognito + Snowflake OAuth App{% endblock %}
+{% block heading %}Snowflake SQL実行{% endblock %}
+
+{% block content %}
+<div style="text-align: right; margin-bottom: 20px;">
+    <a href="{{ url_for('logout') }}" class="btn btn-danger">ログアウト</a>
+</div>
+
+{% if access_claims or id_claims %}
+<div class="jwt-info">
+    <h4>🔐 JWT Token Information</h4>
+    
+    {% if access_claims %}
+    <h5>Access Token Claims:</h5>
+    <p><strong>Subject:</strong> {{ access_claims.get('sub', 'N/A') }}</p>
+    <p><strong>Username:</strong> {{ access_claims.get('username', 'N/A') }}</p>
+    <p><strong>Scopes:</strong> {{ access_claims.get('scope', 'N/A') }}</p>
+    <p><strong>Expires:</strong> {{ access_claims.get('exp', 'N/A') }}</p>
+    {% endif %}
+    
+    {% if id_claims %}
+    <h5>ID Token Claims:</h5>
+    <p><strong>Email:</strong> {{ id_claims.get('email', 'N/A') }}</p>
+    <p><strong>Email Verified:</strong> {{ id_claims.get('email_verified', 'N/A') }}</p>
+    {% if id_claims.get('custom:snowflake_role') %}
+    <p><strong>Snowflake Role:</strong> {{ id_claims.get('custom:snowflake_role') }}</p>
+    {% endif %}
+    {% endif %}
+    
+    <details>
+        <summary><strong>🔍 Full Token Claims (Debug)</strong></summary>
+        {% if access_claims %}
+        <h6>Access Token:</h6>
+        <pre style="background-color: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto; font-size: 12px;">{{ access_claims | tojson(indent=2) }}</pre>
+        {% endif %}
+        {% if id_claims %}
+        <h6>ID Token:</h6>
+        <pre style="background-color: #f0f8ff; padding: 10px; border-radius: 4px; overflow-x: auto; font-size: 12px;">{{ id_claims | tojson(indent=2) }}</pre>
+        {% endif %}
+    </details>
+</div>
+{% endif %}
+
+<form method="POST" action="{{ url_for('execute_sql') }}">
+    <div style="margin-bottom: 20px;">
+        <label for="warehouse"><strong>Warehouse:</strong></label>
+        <input type="text" name="warehouse" id="warehouse" placeholder="COMPUTE_WH" value="{{ warehouse or '' }}" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 15px;">
+    </div>
+    
+    <div style="margin-bottom: 20px;">
+        <label for="sql_query"><strong>SQLクエリを入力:</strong></label>
+        <textarea name="sql_query" id="sql_query" placeholder="SELECT * FROM your_table LIMIT 10;">{{ sql_query or '' }}</textarea>
+    </div>
+    
+    <button type="submit" class="btn">SQL実行</button>
+</form>
+
+{% if results is defined %}
+    <div style="margin-top: 30px;">
+        <h3>実行結果:</h3>
+        
+        {% if results %}
+            <p><strong>{{ results|length }}</strong> 行の結果</p>
+            
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            {% for column in columns %}
+                                <th>{{ column }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in results %}
+                            <tr>
+                                {% for cell in row %}
+                                    <td>{{ cell if cell is not none else 'NULL' }}</td>
+                                {% endfor %}
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p>結果はありませんでした。</p>
+        {% endif %}
+    </div>
+{% endif %}
+
+<div style="margin-top: 40px; padding: 15px; background-color: #e8f4fd; border-left: 4px solid #3498db;">
+    <h4>使用方法:</h4>
+    <ul>
+        <li>上記のテキストエリアにSnowflake SQLクエリを入力してください</li>
+        <li>例: <code>SELECT CURRENT_VERSION();</code></li>
+        <li>例: <code>SHOW DATABASES;</code></li>
+        <li>例: <code>SELECT * FROM INFORMATION_SCHEMA.TABLES LIMIT 5;</code></li>
+        <li>JWT Token情報でCognitoから取得した認証情報を確認できます</li>
+    </ul>
+</div>
+{% endblock %}

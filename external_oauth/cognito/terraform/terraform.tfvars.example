@@ -1,0 +1,5 @@
+aws_region = "us-west-2"
+project_name = "snowflake-cognito-oauth"
+cognito_domain_prefix = "your-unique-domain-prefix"
+callback_urls = ["http://localhost:5000/callback"]
+logout_urls = ["http://localhost:5000/logout"]
