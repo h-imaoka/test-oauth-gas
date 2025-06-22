@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -21,7 +22,7 @@ def lambda_handler(event, context):
         # Access Token専用クレーム（audienceを追加）
         access_token_claims = {
             'scp': 'session:role-any',
-            'aud': 'cognite-client-id'  # Client IDをaudienceとして設定
+            'aud': os.environ.get('COGNITO_CLIENT_ID', 'cognito-client-id')  # 環境変数からaud取得、なければデフォルト
         }
         logger.info(f"Adding scp claim: {custom_claims['scp']}")
         

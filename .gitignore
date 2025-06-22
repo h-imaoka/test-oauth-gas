@@ -1,2 +1,14 @@
 #terraform
 terraform.tfvars
+.terraform
+terraform.tfstate*
+
+
+#.env
+.env
+
+# python
+venv/
+
+# app
+tokens.json

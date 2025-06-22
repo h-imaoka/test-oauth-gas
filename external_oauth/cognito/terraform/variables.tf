@@ -26,3 +26,8 @@ variable "logout_urls" {
   type        = list(string)
   default     = ["http://localhost:5000/logout"]
 }
+
+variable "cognito_client_id" {
+  description = "Cognito App Client ID for Lambda environment variable"
+  type        = string
+}

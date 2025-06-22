@@ -31,12 +31,18 @@ resource "aws_iam_role_policy_attachment" "pre_token_lambda_basic" {
 
 # Lambda関数
 resource "aws_lambda_function" "pre_token_generation" {
-  filename         = data.archive_file.pre_token_lambda_zip.output_path
-  function_name    = "${var.project_name}-pre-token-generation"
-  role            = aws_iam_role.pre_token_lambda_role.arn
-  handler         = "pre_token_generation.lambda_handler"
-  runtime         = "python3.9"
-  timeout         = 10
+  filename      = data.archive_file.pre_token_lambda_zip.output_path
+  function_name = "${var.project_name}-pre-token-generation"
+  role          = aws_iam_role.pre_token_lambda_role.arn
+  handler       = "pre_token_generation.lambda_handler"
+  runtime       = "python3.9"
+  timeout       = 10
+
+  environment {
+    variables = {
+      COGNITO_CLIENT_ID = var.cognito_client_id
+    }
+  }
 
   source_code_hash = data.archive_file.pre_token_lambda_zip.output_base64sha256
 
