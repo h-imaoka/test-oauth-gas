@@ -91,6 +91,20 @@ python app.py
 
 ## 🔧 重要な技術的知見
 
+### 最小構成での実装
+
+**必要最小限の構成**（シンプルなsession:role-any追加の場合）:
+- **User Pool**: 基本設定のみ
+- **User Pool Client**: 標準スコープ (`openid profile email`) のみ
+- **Lambda**: Pre Token Generation v2.0 で `scp: "session:role-any"` 追加
+
+**不要な複雑な設定**:
+- ❌ Resource Server（カスタムスコープ定義）
+- ❌ Custom Scopes Client（複雑なスコープ設定）
+- ❌ Advanced Security Features
+
+**理由**: Lambda で直接 `scp` クレーム追加するため、Cognito側でのカスタムスコープ定義は不要
+
 ### Pre Token Generation Lambda v2.0
 
 **lambda_version = "V2_0"** 設定により:
@@ -99,18 +113,20 @@ python app.py
 - Advanced Security Features は不要（既存User Pool）
 
 ```python
-# Lambda 関数核心部分
-event['response']['claimsAndScopeOverrideDetails'] = {
-    'idTokenGeneration': {
-        'claimsToAddOrOverride': {'scp': 'session:role-any'}
-    },
-    'accessTokenGeneration': {
-        'claimsToAddOrOverride': {
-            'scp': 'session:role-any',
-            'aud': 'CLIENT_ID'  # 必須: Snowflakeのaud検証用
+# 最小構成のLambda関数
+def lambda_handler(event, context):
+    event['response']['claimsAndScopeOverrideDetails'] = {
+        'idTokenGeneration': {
+            'claimsToAddOrOverride': {'scp': 'session:role-any'}
+        },
+        'accessTokenGeneration': {
+            'claimsToAddOrOverride': {
+                'scp': 'session:role-any',
+                'aud': 'CLIENT_ID'  # 必須: Snowflakeのaud検証用
+            }
         }
     }
-}
+    return event
 ```
 
 ### 必須クレーム
